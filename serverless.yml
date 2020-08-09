@@ -1,0 +1,49 @@
+service: blog-serverless-efs
+
+plugins:
+  - serverless-pseudo-parameters
+
+custom:
+  efsAccessPoint: # add your efs access point
+  LocalMountPath: # add your local mount path
+  subnetsId: # add your subnets
+  securityGroup: # add your security group
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-central-1
+
+package:
+  exclude:
+    - node_modules/**
+    - .vscode/**
+    - .serverless/**
+    - .pytest_cache/**
+    - __pychache__/**
+
+functions:
+  joke:
+    handler: handler.handler
+    environment: # Service wide environment variables
+      MNT_DIR: ${self:custom.LocalMountPath}
+    vpc:
+      securityGroupIds:
+        - ${self:custom.securityGroup}
+      subnetIds:
+        - ${self:custom.subnetsId}
+    iamManagedPolicies:
+      - arn:aws:iam::aws:policy/AmazonElasticFileSystemClientReadWriteAccess
+    events:
+      - http:
+          path: joke
+          method: get
+
+resources:
+  extensions:
+    # Name of function <joke>
+    JokeLambdaFunction:
+      Properties:
+        FileSystemConfigs:
+          - Arn: 'arn:aws:elasticfilesystem:${self:provider.region}:#{AWS::AccountId}:access-point/${self:custom.efsAccessPoint}'
+            LocalMountPath: '${self:custom.LocalMountPath}'
